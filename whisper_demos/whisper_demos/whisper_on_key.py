@@ -7,6 +7,7 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.task import Future
 from whisper_msgs.action._inference import Inference_FeedbackMessage
+from std_msgs import String
 
 from whisper_msgs.action import Inference
 
@@ -29,6 +30,7 @@ class WhisperOnKey(Node):
 
         self.key_listener = Listener(on_press=self.on_key)
         self.key_listener.start()
+        self.whisper_publiser = self.create_publisher(String,'/whisper/inference_result',5)
 
         self.get_logger().info(self.info_string())
 
@@ -45,7 +47,7 @@ class WhisperOnKey(Node):
 
     def on_space(self) -> None:
         goal_msg = Inference.Goal()
-        goal_msg.max_duration = Duration(sec=20, nanosec=0)
+        goal_msg.max_duration = Duration(sec=10, nanosec=0)
         self.get_logger().info(
             f"Requesting inference for {goal_msg.max_duration.sec} seconds..."
         )
@@ -66,7 +68,11 @@ class WhisperOnKey(Node):
         future.add_done_callback(self.on_done)
 
     def on_done(self, future: Future) -> None:
+        self.get_logger().info("Goal Done is being processed.")
         result: Inference.Result = future.result().result
+        msg = String()
+        msg.data = result
+        self.whisper_publiser.publish(msg)
         self.get_logger().info(f"Result: {result.transcriptions}")
 
     def on_feedback(self, feedback_msg: Inference_FeedbackMessage) -> None:
